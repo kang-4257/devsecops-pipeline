@@ -190,12 +190,12 @@ async def read_root(request: Request):
         return RedirectResponse(url="/main", status_code=303)
     error = request.query_params.get("error")
     success = request.query_params.get("success")
-    return templates.TemplateResponse("login.html", {"request": request, "error": error, "success": success})
+    return templates.TemplateResponse(request, "login.html", { "error": error, "success": success})
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
     error = request.query_params.get("error")
-    return templates.TemplateResponse("register.html", {"request": request, "error": error})
+    return templates.TemplateResponse(request, "register.html", { "error": error})
 
 @app.post("/register")
 def register(
@@ -251,14 +251,14 @@ async def main_page(request: Request, db: Session = Depends(get_db)):
     for post in posts:
         if post.created_at:
             post.created_at = post.created_at + timedelta(hours=9)
-    return templates.TemplateResponse("main.html", {"request": request, "posts": posts, "current_user": user})
+    return templates.TemplateResponse(request, "main.html", { "posts": posts, "current_user": user})
 
 @app.get("/write", response_class=HTMLResponse)
 async def write_page(request: Request):
     user = get_current_user(request)
     if not user:
         return RedirectResponse(url="/", status_code=303)
-    return templates.TemplateResponse("write.html", {"request": request, "current_user": user})
+    return templates.TemplateResponse(request, "write.html", { "current_user": user})
 
 @app.post("/write")
 async def write_post(
@@ -288,7 +288,7 @@ async def post_detail(post_id: int, request: Request, db: Session = Depends(get_
     from datetime import timedelta
     if post.created_at:
         post.created_at = post.created_at + timedelta(hours=9)
-    return templates.TemplateResponse("post_detail.html", {"request": request, "post": post, "current_user": user})
+    return templates.TemplateResponse(request, "post_detail.html", { "post": post, "current_user": user})
 
 @app.get("/post/{post_id}/edit", response_class=HTMLResponse)
 async def edit_page(post_id: int, request: Request, db: Session = Depends(get_db)):
@@ -298,7 +298,7 @@ async def edit_page(post_id: int, request: Request, db: Session = Depends(get_db
     post = db.query(Post).filter(Post.id == post_id).first()
     if not post or post.owner_id != user["id"]:
         raise HTTPException(status_code=403, detail="권한이 없습니다.")
-    return templates.TemplateResponse("edit.html", {"request": request, "post": post, "current_user": user})
+    return templates.TemplateResponse(request, "edit.html", { "post": post, "current_user": user})
 
 @app.post("/post/{post_id}/edit")
 async def edit_post(
@@ -338,7 +338,7 @@ async def my_posts(request: Request, db: Session = Depends(get_db)):
     if not user:
         return RedirectResponse(url="/", status_code=303)
     posts = db.query(Post).filter(Post.owner_id == user["id"]).order_by(Post.id.desc()).all()
-    return templates.TemplateResponse("my_posts.html", {"request": request, "posts": posts, "current_user": user})
+    return templates.TemplateResponse(request, "my_posts.html", { "posts": posts, "current_user": user})
 
 # ========================
 # --- Admin 라우트 ---
@@ -361,8 +361,7 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
         latest_scan.scanned_at = latest_scan.scanned_at + timedelta(hours=9)
     grafana_url = os.getenv("GRAFANA_EXTERNAL_URL", "http://localhost:30000")
 
-    return templates.TemplateResponse("admin/dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "admin/dashboard.html", {
         "current_user": user,
         "polaris": polaris,
         "total_users": total_users,
@@ -377,7 +376,7 @@ async def admin_users(request: Request, db: Session = Depends(get_db)):
     if not user:
         return RedirectResponse(url="/", status_code=303)
     users = db.query(User).all()
-    return templates.TemplateResponse("admin/users.html", {"request": request, "current_user": user, "users": users})
+    return templates.TemplateResponse(request, "admin/users.html", { "current_user": user, "users": users})
 
 @app.post("/admin/users/{user_id}/delete")
 async def admin_delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
@@ -398,7 +397,7 @@ async def admin_posts(request: Request, db: Session = Depends(get_db)):
     if not user:
         return RedirectResponse(url="/", status_code=303)
     posts = db.query(Post).order_by(Post.id.desc()).all()
-    return templates.TemplateResponse("admin/posts.html", {"request": request, "current_user": user, "posts": posts})
+    return templates.TemplateResponse(request, "admin/posts.html", { "current_user": user, "posts": posts})
 
 @app.get("/admin/trivy", response_class=HTMLResponse)
 async def admin_trivy(request: Request, db: Session = Depends(get_db)):
@@ -413,7 +412,7 @@ async def admin_trivy(request: Request, db: Session = Depends(get_db)):
         if scan.scanned_at:
             scan.scanned_at = scan.scanned_at + timedelta(hours=9)
 
-    return templates.TemplateResponse("admin/trivy.html", {"request": request, "current_user": user, "scans": scans})
+    return templates.TemplateResponse(request, "admin/trivy.html", { "current_user": user, "scans": scans})
 
 @app.post("/post/{post_id}/comment")
 async def create_comment(
@@ -446,7 +445,6 @@ async def edit_comment_page(
     if not comment or comment.owner_id != user["id"]:
         raise HTTPException(status_code=403, detail="권한이 없습니다.")
     return templates.TemplateResponse("edit_comment.html", {
-        "request": request,
         "comment": comment,
         "current_user": user
     })
@@ -499,7 +497,6 @@ async def admin_vulns(scan_id: int, request: Request, db: Session = Depends(get_
     severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     vulns = sorted(vulns, key=lambda v: severity_order.get(v.severity, 99))
     return templates.TemplateResponse("admin/vulns.html", {
-        "request": request,
         "current_user": user,
         "scan": scan,
         "vulns": vulns
